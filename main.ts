@@ -85,6 +85,7 @@ export class ResearchPaperSuggestionModal extends SuggestModal<object> {
 	renderSuggestion(paper: ResearchPaper, el: HTMLElement) {
 		el.createEl("div", {text: paper.display_name});
 		el.createEl("small", {text: paper.hint ? paper.hint : ""});
+		el.createEl("small", {text: paper.cited_by_count ? " | citations: "+paper.cited_by_count : ""});
 	}
 
 

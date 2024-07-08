@@ -29,9 +29,8 @@ export interface ResearchPaper {
 	abstract_inverted_index?: object
 	abstract: string
 	authorships?: object[]
-	author_ids?: string[]
-	author_names?: string[]
 	keywords: Keyword[]
+	cited_by_count?: number
 	// more to be added
 }
 
