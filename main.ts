@@ -13,19 +13,35 @@ import {FileSuggestionComponent} from "obsidian-file-suggestion-component";
 
 import {OpenAlex, ResearchPaper} from './src/openalex'
 
+interface MetadataPreferences {
+	ids: boolean;
+	keywords: boolean;
+	abstract: boolean;
+	authors: boolean;
+
+	[key: string]: boolean;
+}
 
 interface ResearchAssistantPluginSettings {
 	mySetting: string;
 	polite_email: string
 	paper_folder: string
 	overwrite_flag: boolean
+	metadata_preferences: MetadataPreferences
+
 }
 
 const DEFAULT_SETTINGS: ResearchAssistantPluginSettings = {
 	mySetting: 'default',
 	polite_email: "",
 	paper_folder: "ResearchAssistant/papers",
-	overwrite_flag: false
+	overwrite_flag: false,
+	metadata_preferences: {
+		ids: true,
+		keywords: true,
+		abstract: true,
+		authors: true
+	}
 }
 
 export class ResearchPaperSuggestionModal extends SuggestModal<object> {
@@ -85,7 +101,7 @@ export class ResearchPaperSuggestionModal extends SuggestModal<object> {
 	renderSuggestion(paper: ResearchPaper, el: HTMLElement) {
 		el.createEl("div", {text: paper.display_name});
 		el.createEl("small", {text: paper.hint ? paper.hint : ""});
-		el.createEl("small", {text: paper.cited_by_count ? " | citations: "+paper.cited_by_count : ""});
+		el.createEl("small", {text: paper.cited_by_count ? " | citations: " + paper.cited_by_count : ""});
 	}
 
 
@@ -93,18 +109,7 @@ export class ResearchPaperSuggestionModal extends SuggestModal<object> {
 		this.onSubmit(paper);
 	}
 
-	async userAction(url: any) {
-		console.log("inside userAction: " + url)
-		const response = await fetch(url, {
-			method: 'GET',
-			headers: {
-				'Content-Type': 'application/json'
-			}
-		});
-		const result = await response.json();
-		return result
-		// callback(result)
-	}
+
 }
 
 
@@ -113,10 +118,10 @@ export default class ResearchAssistantPlugin extends Plugin {
 
 
 	async createPaperNoteById(id: string) {
-		console.log("create paper note here: " + id)
+		// console.log("create paper note here: " + id)
 		const oa: OpenAlex = new OpenAlex(this.settings.polite_email)
 		const paper = await oa.oaGetPaperById(id)
-		console.log(paper)
+
 		// create paper note
 		// clean paper_name for valid filename
 		const paper_name = paper.display_name.replace(/[^a-zA-Z0-9]/g, "_")
@@ -125,7 +130,10 @@ export default class ResearchAssistantPlugin extends Plugin {
 		let paper_file = this.app.vault.getFileByPath(path)
 		if (paper_file) {
 			this.updateFrontMatter(paper_file, paper, () => {
-				this.app.vault.append(<TFile>paper_file, paper.abstract)
+				if (this.settings.metadata_preferences.abstract) {
+					this.app.vault.append(<TFile>paper_file, paper.abstract)
+
+				}
 				this.app.workspace.getLeaf('tab').openFile(<TFile>paper_file)
 			})
 		} else {
@@ -158,9 +166,7 @@ export default class ResearchAssistantPlugin extends Plugin {
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
 						const modal: ResearchPaperSuggestionModal = new ResearchPaperSuggestionModal(this.app, async (result) => {
-							console.log("processing result:")
-							console.log(result)
-
+							// console.log(result)
 							// @ts-ignore
 							const id = result.id.split("/").last()
 							await this.createPaperNoteById(id)
@@ -234,7 +240,15 @@ export default class ResearchAssistantPlugin extends Plugin {
 
 	async updateFrontMatter(file: TFile, paper: object, callback: () => void) {
 		const overwrite_flag = true //this.settings.overwriteFlag
+		for (const [key] of Object.entries(paper)) {
+			if (this.settings.metadata_preferences.hasOwnProperty(key) && !this.settings.metadata_preferences[key]) {
+				// @ts-ignore
+				delete paper[key]
+			}
+		}
+
 		const entity_props = this.prepare_front_matter(paper)
+
 		await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
 			// set property if it doesn't exist or if overwrite flag is set
 			// console.log(frontmatter)
@@ -289,6 +303,19 @@ class ResearchAssistantSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}));
 
+		new Setting(containerEl)
+			.setName("Overwrite existing properties")
+			.setDesc("If checked, existing properties will be overwritten")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.overwrite_flag)
+					.onChange(async (value) => {
+						this.plugin.settings.overwrite_flag = value;
+						await this.plugin.saveSettings();
+					}));
+
+		containerEl.createEl("h2", {text: "Research paper notes"});
+
 		const saveLoc = new Setting(containerEl)
 			.setName('Papers folder')
 			.setDesc('Folder to store paper notes');
@@ -302,16 +329,52 @@ class ResearchAssistantSettingTab extends PluginSettingTab {
 				this.plugin.settings.paper_folder = val.path;
 				await this.plugin.saveSettings();
 			});
-
+		// add toggle
+		containerEl.createEl("h3", {text: "Metadata preferences"});
+		// add checkbox
 		new Setting(containerEl)
-			.setName("Overwrite existing properties")
-			.setDesc("If checked, existing properties will be overwritten")
+			.setName("Ids")
+			.setDesc("If checked, ids(mag, openalex,doi) will be added to metadata")
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.overwrite_flag)
+					.setValue(this.plugin.settings.metadata_preferences.ids)
 					.onChange(async (value) => {
-						this.plugin.settings.overwrite_flag = value;
+						this.plugin.settings.metadata_preferences.ids = value;
 						await this.plugin.saveSettings();
 					}));
+
+		new Setting(containerEl)
+			.setName("Authors")
+			.setDesc("If checked, authors info will be added to metadata")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.metadata_preferences.authors)
+					.onChange(async (value) => {
+						this.plugin.settings.metadata_preferences.authors = value;
+						await this.plugin.saveSettings();
+					}));
+
+		new Setting(containerEl)
+			.setName("Abstract")
+			.setDesc("If checked, abstract will be added to metadata")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.metadata_preferences.abstract)
+					.onChange(async (value) => {
+						this.plugin.settings.metadata_preferences.abstract = value;
+						await this.plugin.saveSettings();
+					}));
+
+		new Setting(containerEl)
+			.setName("Keywords")
+			.setDesc("If checked, keywords will be added to metadata")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.metadata_preferences.keywords)
+					.onChange(async (value) => {
+						this.plugin.settings.metadata_preferences.keywords = value;
+						await this.plugin.saveSettings();
+					}));
+
 	}
 }
