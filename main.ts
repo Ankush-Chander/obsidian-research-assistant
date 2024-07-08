@@ -208,12 +208,19 @@ export default class ResearchAssistantPlugin extends Plugin {
 						// @ts-ignore
 						return item.hasOwnProperty("id") ? item["id"] : ""
 					})
-				}
-				// @ts-ignore
-				entity_props["author_names"] = value.map((item) => {
+
 					// @ts-ignore
-					return item.hasOwnProperty("display_name") ? item["display_name"] : ""
-				})
+					entity_props["author_names"] = value.map((item) => {
+						// @ts-ignore
+						return item.hasOwnProperty("display_name") ? item["display_name"] : ""
+					})
+				} else if (key == "keywords") {
+					// @ts-ignore
+					entity_props["keywords"] = value.map((item) => {
+						// @ts-ignore
+						return item.hasOwnProperty("display_name") ? item["display_name"] : item
+					})
+				}
 			} else if (value && typeof (value) == "object") {
 				for (const [key2, value2] of Object.entries(value)) {
 					// @ts-ignore
