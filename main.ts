@@ -13,11 +13,15 @@ import {FileSuggestionComponent} from "obsidian-file-suggestion-component";
 
 import {OpenAlex, ResearchPaper} from './src/openalex'
 
+import {PcDataset, PcMethod, PapersWithCode} from './src/paperswithcode';
+
 interface MetadataPreferences {
 	ids: boolean;
 	keywords: boolean;
 	abstract: boolean;
 	authors: boolean;
+	methods: boolean;
+	datasets: boolean;
 
 	[key: string]: boolean;
 }
@@ -40,7 +44,9 @@ const DEFAULT_SETTINGS: ResearchAssistantPluginSettings = {
 		ids: true,
 		keywords: true,
 		abstract: true,
-		authors: true
+		authors: true,
+		methods: true,
+		datasets: true
 	}
 }
 
@@ -121,7 +127,16 @@ export default class ResearchAssistantPlugin extends Plugin {
 		// console.log("create paper note here: " + id)
 		const oa: OpenAlex = new OpenAlex(this.settings.polite_email)
 		const paper = await oa.oaGetPaperById(id)
-
+		// get paperswithcode data
+		const pc: PapersWithCode = new PapersWithCode()
+		const pc_paper = await pc.getPaperByTitle(paper.display_name)
+		if (pc_paper) {
+			paper.ids.paperswithcode = pc_paper.id
+			paper.pdf_url = pc_paper.conference_url_pdf ? pc_paper.conference_url_pdf : pc_paper.url_pdf
+			paper.methods = await pc.getMethodsByPaperId(pc_paper.id)
+			paper.datasets = await pc.getDatasetsByPaperId(pc_paper.id)
+		}
+		// console.log(paper)
 		// create paper note
 		// clean paper_name for valid filename
 		const paper_name = paper.display_name.replace(/[^a-zA-Z0-9]/g, "_")
@@ -129,11 +144,31 @@ export default class ResearchAssistantPlugin extends Plugin {
 		// eslint-disable-next-line
 		let paper_file = this.app.vault.getFileByPath(path)
 		if (paper_file) {
+			// console.log(this.settings.metadata_preferences)
 			this.updateFrontMatter(paper_file, paper, () => {
 				if (this.settings.metadata_preferences.abstract) {
 					this.app.vault.append(<TFile>paper_file, paper.abstract)
 
 				}
+
+				if (this.settings.metadata_preferences.datasets && paper.datasets) {
+					const dataset_base_url = "https://paperswithcode.com/dataset"
+					const datasets_strings = paper.datasets.map((dataset: PcDataset) => {
+						const dataset_name = dataset.full_name ? dataset.full_name : dataset.name
+						return "[" + dataset_name + "](" + dataset_base_url + "/" + dataset.id + ") "
+					})
+					this.app.vault.append(<TFile>paper_file, "\n\n**Datasets:** " + datasets_strings.join(", "))
+				}
+
+				if (this.settings.metadata_preferences.methods && paper.methods) {
+					const method_base_url = "https://paperswithcode.com/dataset"
+					const method_strings = paper.methods.map((method: PcMethod) => {
+						const method_name = method.full_name ? method.full_name : method.name
+						return "[" + method_name + "](" + method_base_url + "/" + method.id + ") "
+					})
+					this.app.vault.append(<TFile>paper_file, "\n\n**Methods:** " + method_strings.join(", "))
+				}
+
 				this.app.workspace.getLeaf('tab').openFile(<TFile>paper_file)
 			})
 		} else {
@@ -198,7 +233,7 @@ export default class ResearchAssistantPlugin extends Plugin {
 
 	prepare_front_matter(paper: object) {
 		const entity_props = {}
-		const properties_of_interest = ["id", "display_name", "publication_year", "keywords", "ids", "authors"]
+		const properties_of_interest = ["id", "display_name", "pdf_url", "publication_year", "keywords", "ids", "authors"]
 		for (const [key, value] of Object.entries(paper)) {
 			if (!properties_of_interest.includes(key)) {
 				continue
@@ -356,7 +391,7 @@ class ResearchAssistantSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Abstract")
-			.setDesc("If checked, abstract will be added to metadata")
+			.setDesc("If checked, abstract will be added to the note")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.metadata_preferences.abstract)
@@ -375,6 +410,27 @@ class ResearchAssistantSettingTab extends PluginSettingTab {
 						this.plugin.settings.metadata_preferences.keywords = value;
 						await this.plugin.saveSettings();
 					}));
+		// add checkbox
+		new Setting(containerEl)
+			.setName("Datasets")
+			.setDesc("If checked, datasets will be added to the note")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.metadata_preferences.datasets)
+					.onChange(async (value) => {
+						this.plugin.settings.metadata_preferences.datasets = value;
+						await this.plugin.saveSettings();
+					}));
 
+		new Setting(containerEl)
+			.setName("Methods")
+			.setDesc("If checked, methods will be added to the note")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.metadata_preferences.methods)
+					.onChange(async (value) => {
+						this.plugin.settings.metadata_preferences.methods = value;
+						await this.plugin.saveSettings();
+					}));
 	}
 }

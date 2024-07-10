@@ -31,6 +31,7 @@ export interface ResearchPaper {
 	authorships?: object[]
 	keywords: Keyword[]
 	cited_by_count?: number
+	pdf_url?: string
 	// more to be added
 }
 
