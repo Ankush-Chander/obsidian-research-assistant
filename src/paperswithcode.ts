@@ -28,10 +28,11 @@ export interface PcMethod {
 }
 
 export class PapersWithCode {
-	base_url = "https://paperswithcode.com/api/v1"
+	base_url = "https://paperswithcode.com"
+	// https://paperswithcode.com/paper/making-monolingual-sentence-embeddings
 
 	async getPaperByTitle(title: string) {
-		const url = this.base_url + "/papers?title=" + encodeURIComponent(title)
+		const url = this.base_url + "/api/v1/papers?title=" + encodeURIComponent(title)
 		const response = await requestUrl({
 			url: url,
 			method: 'GET',
@@ -47,7 +48,7 @@ export class PapersWithCode {
 	}
 
 	async getDatasetsByPaperId(id: string) {
-		const url = this.base_url + "/papers/" + id + "/datasets"
+		const url = this.base_url + "/api/v1/papers/" + id + "/datasets"
 		const response = await requestUrl({
 			url: url,
 			method: 'GET',
@@ -60,7 +61,7 @@ export class PapersWithCode {
 	}
 
 	async getMethodsByPaperId(id: string) {
-		const url = this.base_url + "/papers/" + id + "/methods"
+		const url = this.base_url + "/api/v1/papers/" + id + "/methods"
 		const response = await requestUrl({
 			url: url,
 			method: 'GET',

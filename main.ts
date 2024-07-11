@@ -124,14 +124,14 @@ export default class ResearchAssistantPlugin extends Plugin {
 
 
 	async createPaperNoteById(id: string) {
-		// console.log("create paper note here: " + id)
+		// console.log("create paper note here: " + id
 		const oa: OpenAlex = new OpenAlex(this.settings.polite_email)
 		const paper = await oa.oaGetPaperById(id)
 		// get paperswithcode data
 		const pc: PapersWithCode = new PapersWithCode()
 		const pc_paper = await pc.getPaperByTitle(paper.display_name)
 		if (pc_paper) {
-			paper.ids.paperswithcode = pc_paper.id
+			paper.ids.paperswithcode = pc.base_url + "/paper/" + pc_paper.id
 			paper.pdf_url = pc_paper.conference_url_pdf ? pc_paper.conference_url_pdf : pc_paper.url_pdf
 			paper.methods = await pc.getMethodsByPaperId(pc_paper.id)
 			paper.datasets = await pc.getDatasetsByPaperId(pc_paper.id)
