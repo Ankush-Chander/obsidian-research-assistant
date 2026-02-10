@@ -1,5 +1,5 @@
 import * as _ from 'lodash';
-import {requestUrl} from "obsidian";
+import { requestUrl } from "obsidian";
 
 interface Ids {
 	"openalex": string
@@ -77,6 +77,9 @@ export class OpenAlex {
 			// @ts-ignore
 			return author["author"];
 		}) : []
+		// @ts-ignore
+		result.pdf_url = paper_response.primary_location?.pdf_url || paper_response.open_access?.oa_url || null;
+
 		delete result.abstract_inverted_index
 		delete result.authorships
 		// console.log(result)
