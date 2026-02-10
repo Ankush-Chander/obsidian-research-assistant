@@ -9,19 +9,18 @@ import {
 } from 'obsidian';
 
 // Remember to rename these classes and interfaces!
-import {FileSuggestionComponent} from "obsidian-file-suggestion-component";
+import { FileSuggestionComponent } from "obsidian-file-suggestion-component";
 
-import {OpenAlex, ResearchPaper} from './src/openalex'
+import { OpenAlex, ResearchPaper } from './src/openalex'
 
-import {PcDataset, PcMethod, PapersWithCode} from './src/paperswithcode';
+
 
 interface MetadataPreferences {
 	ids: boolean;
 	keywords: boolean;
 	abstract: boolean;
 	authors: boolean;
-	methods: boolean;
-	datasets: boolean;
+
 
 	[key: string]: boolean;
 }
@@ -45,8 +44,7 @@ const DEFAULT_SETTINGS: ResearchAssistantPluginSettings = {
 		keywords: true,
 		abstract: true,
 		authors: true,
-		methods: true,
-		datasets: true
+
 	}
 }
 
@@ -105,9 +103,9 @@ export class ResearchPaperSuggestionModal extends SuggestModal<object> {
 
 	// Renders each suggestion item.
 	renderSuggestion(paper: ResearchPaper, el: HTMLElement) {
-		el.createEl("div", {text: paper.display_name});
-		el.createEl("small", {text: paper.hint ? paper.hint : ""});
-		el.createEl("small", {text: paper.cited_by_count ? " | citations: " + paper.cited_by_count : ""});
+		el.createEl("div", { text: paper.display_name });
+		el.createEl("small", { text: paper.hint ? paper.hint : "" });
+		el.createEl("small", { text: paper.cited_by_count ? " | citations: " + paper.cited_by_count : "" });
 	}
 
 
@@ -127,15 +125,7 @@ export default class ResearchAssistantPlugin extends Plugin {
 		// console.log("create paper note here: " + id
 		const oa: OpenAlex = new OpenAlex(this.settings.polite_email)
 		const paper = await oa.oaGetPaperById(id)
-		// get paperswithcode data
-		const pc: PapersWithCode = new PapersWithCode()
-		const pc_paper = await pc.getPaperByTitle(paper.display_name)
-		if (pc_paper) {
-			paper.ids.paperswithcode = pc.base_url + "/paper/" + pc_paper.id
-			paper.pdf_url = pc_paper.conference_url_pdf ? pc_paper.conference_url_pdf : pc_paper.url_pdf
-			paper.methods = await pc.getMethodsByPaperId(pc_paper.id)
-			paper.datasets = await pc.getDatasetsByPaperId(pc_paper.id)
-		}
+
 		// console.log(paper)
 		// create paper note
 		// clean paper_name for valid filename
@@ -151,23 +141,7 @@ export default class ResearchAssistantPlugin extends Plugin {
 
 				}
 
-				if (this.settings.metadata_preferences.datasets && paper.datasets) {
-					const dataset_base_url = "https://paperswithcode.com/dataset"
-					const datasets_strings = paper.datasets.map((dataset: PcDataset) => {
-						const dataset_name = dataset.full_name ? dataset.full_name : dataset.name
-						return "[" + dataset_name + "](" + dataset_base_url + "/" + dataset.id + ") "
-					})
-					this.app.vault.append(<TFile>paper_file, "\n\n**Datasets:** " + datasets_strings.join(", "))
-				}
 
-				if (this.settings.metadata_preferences.methods && paper.methods) {
-					const method_base_url = "https://paperswithcode.com/dataset"
-					const method_strings = paper.methods.map((method: PcMethod) => {
-						const method_name = method.full_name ? method.full_name : method.name
-						return "[" + method_name + "](" + method_base_url + "/" + method.id + ") "
-					})
-					this.app.vault.append(<TFile>paper_file, "\n\n**Methods:** " + method_strings.join(", "))
-				}
 
 				this.app.workspace.getLeaf('tab').openFile(<TFile>paper_file)
 			})
@@ -322,7 +296,7 @@ class ResearchAssistantSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
@@ -349,7 +323,7 @@ class ResearchAssistantSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}));
 
-		containerEl.createEl("h2", {text: "Research paper notes"});
+		containerEl.createEl("h2", { text: "Research paper notes" });
 
 		const saveLoc = new Setting(containerEl)
 			.setName('Papers folder')
@@ -365,7 +339,7 @@ class ResearchAssistantSettingTab extends PluginSettingTab {
 				await this.plugin.saveSettings();
 			});
 		// add toggle
-		containerEl.createEl("h3", {text: "Metadata preferences"});
+		containerEl.createEl("h3", { text: "Metadata preferences" });
 		// add checkbox
 		new Setting(containerEl)
 			.setName("Ids")
@@ -411,26 +385,6 @@ class ResearchAssistantSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}));
 		// add checkbox
-		new Setting(containerEl)
-			.setName("Datasets")
-			.setDesc("If checked, datasets will be added to the note")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.metadata_preferences.datasets)
-					.onChange(async (value) => {
-						this.plugin.settings.metadata_preferences.datasets = value;
-						await this.plugin.saveSettings();
-					}));
 
-		new Setting(containerEl)
-			.setName("Methods")
-			.setDesc("If checked, methods will be added to the note")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.metadata_preferences.methods)
-					.onChange(async (value) => {
-						this.plugin.settings.metadata_preferences.methods = value;
-						await this.plugin.saveSettings();
-					}));
 	}
 }
